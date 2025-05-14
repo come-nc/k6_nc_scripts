@@ -6,7 +6,7 @@ import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.0.0/index.js'
 export let options = {
   iterations: 20,
   vus: 10,
-  duration: '10s',
+  duration: '20s',
 }
 
 export default function() {
