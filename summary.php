@@ -20,19 +20,25 @@ function median(array $values): float {
 	return ($values[$half - 1] + $values[$half]) / 2.0;
 }
 
-$inputFile = $argv[1];
-$version = $argv[2] ?? $inputFile;
+function aggregateFile(string $inputFile, string $version, array &$data): void {
+	$testedEndpoints = runCommand("jq '. | select(.type==\"Point\" and .metric == \"http_req_duration\")|.data.tags.url' {$inputFile} -r");
 
-$testedEndpoints = runCommand("jq '. | select(.type==\"Point\" and .metric == \"http_req_duration\")|.data.tags.url' {$inputFile} -r");
+	$testedEndpoints = array_values(array_unique($testedEndpoints));
 
-$testedEndpoints = array_values(array_unique($testedEndpoints));
+	foreach ($testedEndpoints as $testedEndpoint) {
+		$dataPoints = runCommand("jq '. | select(.type==\"Point\" and .metric == \"http_req_duration\" and .data.tags.url == \"{$testedEndpoint}\")|.data.value' {$inputFile}");
+		$testedEndpoint = explode('/',$testedEndpoint,4)[3];
+		$data[] = ['version' => $version,'url' => $testedEndpoint, 'median' => median($dataPoints)];
+	}
+}
 
 $data = [];
 
-foreach ($testedEndpoints as $testedEndpoint) {
-	$dataPoints = runCommand("jq '. | select(.type==\"Point\" and .metric == \"http_req_duration\" and .data.tags.url == \"{$testedEndpoint}\")|.data.value' {$inputFile}");
-	$testedEndpoint = explode('/',$testedEndpoint,4)[3];
-	$data[] = ['version' => $version,'url' => $testedEndpoint, 'median' => median($dataPoints)];
+// $inputFile = $argv[1];
+// $version = $argv[2] ?? $inputFile;
+$files = array_slice($argv, 1);
+foreach ($files as $file) {
+	aggregateFile($file, str_replace('.json','',$file), $data);
 }
 
 echo json_encode($data);
