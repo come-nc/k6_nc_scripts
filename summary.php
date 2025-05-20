@@ -23,10 +23,24 @@ function median(array $values): float {
 function aggregateFile(string $inputFile, string $version, array &$data): void {
 	$testedEndpoints = runCommand("jq '. | select(.type==\"Point\" and .metric == \"http_req_duration\")|.data.tags.url' {$inputFile} -r");
 
-	$testedEndpoints = array_values(array_unique($testedEndpoints));
+	$testedEndpoints = array_values(array_unique(
+		array_map(
+			fn ($url) => preg_replace('@filename_[^/.]+\.txt$@', 'filename_uuid.txt', $url),
+			$testedEndpoints,
+		)
+	));
 
 	foreach ($testedEndpoints as $testedEndpoint) {
-		$dataPoints = runCommand("jq '. | select(.type==\"Point\" and .metric == \"http_req_duration\" and .data.tags.url == \"{$testedEndpoint}\")|.data.value' {$inputFile}");
+		$regEx = "^{$testedEndpoint}$";
+		if (preg_match('@^(.+filename_)[^/.]+\.txt$@', $testedEndpoint, $matches)) {
+			// var_dump($matches);
+			$regEx = "^{$matches[1]}";
+			$testedEndpoint = "{$matches[1]}uuid.txt";
+		} else {
+			// echo $testedEndpoint."\n";
+		}
+		$dataPoints = runCommand("jq '. | select(.type==\"Point\" and .metric == \"http_req_duration\" )|select(.data.tags.url|test(\"{$regEx}\"))|.data.value' {$inputFile}");
+
 		$testedEndpoint = explode('/',$testedEndpoint,4)[3];
 		$data[] = ['version' => $version,'url' => $testedEndpoint, 'median' => median($dataPoints)];
 	}
