@@ -4,9 +4,9 @@ import { group, check } from 'k6'
 import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.0.0/index.js'
 
 export let options = {
-  iterations: 20,
+  iterations: 100,
   vus: 10,
-  duration: '20s',
+  duration: '120s',
 }
 
 export default function() {
