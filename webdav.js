@@ -16,9 +16,9 @@ const createFile = url => {
     'Content-Type': 'application/x-www-form-urlencoded'
   }
 
-  const response = http.request('PUT', url, body, { headers: headers, tags: { group: 'createFile' } })
+  const response = http.request('PUT', url, body, { headers: headers, tags: { group: 'createFile', name: 'PUT remote.php/webdav/<file>' } })
   check(response, {
-    'status is 201 or 204': (r) => r.status === 201 || 204
+    'PUT status is 201 or 204': (r) => r.status === 201 || r.status === 204
   })
 }
 
@@ -26,17 +26,28 @@ const deleteFile = (url) => {
   const headers = {
     'Authorization': 'Basic ' + encoding.b64encode('admin:admin')
   }
-  const response = http.request('DELETE', url, undefined, { headers: headers, tags: { group: 'deleteFile' } })
+  const response = http.request('DELETE', url, undefined, { headers: headers, tags: { group: 'deleteFile', name: 'DELETE remote.php/webdav/<file>' } })
   check(response, {
-    'status is 204': (r) => r.status === 204
+    'DELETE status is 204': (r) => r.status === 204
+  })
+}
+
+const listFiles = (url) => {
+  const headers = {
+    'Authorization': 'Basic ' + encoding.b64encode('admin:admin')
+  }
+  const response = http.request('PROPFIND', url, undefined, { headers: headers, tags: { group: 'listFiles' } })
+  check(response, {
+    'PROPFIND status is >= 200 and < 300': (r) => r.status >= 200 && r.status < 300
   })
 }
 
 export default function() {
   group('webdav', function () {
-    const fileName = `${uuidv4()}.txt`
+    const fileName = `filename_${uuidv4()}.txt`
     const url = `${__ENV.BASEURI}/remote.php/webdav/${fileName}`
     createFile(url)
     deleteFile(url)
+    listFiles(`${__ENV.BASEURI}/remote.php/webdav`)
   });
 }
