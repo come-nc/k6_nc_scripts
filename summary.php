@@ -21,27 +21,18 @@ function median(array $values): float {
 }
 
 function aggregateFile(string $inputFile, string $version, array &$data): void {
-	$testedEndpoints = runCommand("jq '. | select(.type==\"Point\" and .metric == \"http_req_duration\")|.data.tags.url' {$inputFile} -r");
+	$testedEndpoints = runCommand("jq '. | select(.type==\"Point\" and .metric == \"http_req_duration\")|.data.tags.name' {$inputFile} -r");
 
-	$testedEndpoints = array_values(array_unique(
-		array_map(
-			fn ($url) => preg_replace('@filename_[^/.]+\.txt$@', 'filename_uuid.txt', $url),
-			$testedEndpoints,
-		)
-	));
+	$testedEndpoints = array_values(array_unique($testedEndpoints));
+
+	$excludeEndpoints = ['version.php','index.php/csrftoken'];
 
 	foreach ($testedEndpoints as $testedEndpoint) {
-		$regEx = "^{$testedEndpoint}$";
-		if (preg_match('@^(.+filename_)[^/.]+\.txt$@', $testedEndpoint, $matches)) {
-			// var_dump($matches);
-			$regEx = "^{$matches[1]}";
-			$testedEndpoint = "{$matches[1]}uuid.txt";
-		} else {
-			// echo $testedEndpoint."\n";
+		$dataPoints = runCommand("jq '. | select(.type==\"Point\" and .metric == \"http_req_duration\" and .data.tags.name == \"{$testedEndpoint}\")|.data.value' {$inputFile}");
+		$testedEndpoint = explode('/',$testedEndpoint,4)[3] ?? $testedEndpoint;
+		if (in_array($testedEndpoint, $excludeEndpoints)) {
+			continue;
 		}
-		$dataPoints = runCommand("jq '. | select(.type==\"Point\" and .metric == \"http_req_duration\" )|select(.data.tags.url|test(\"{$regEx}\"))|.data.value' {$inputFile}");
-
-		$testedEndpoint = explode('/',$testedEndpoint,4)[3];
 		$data[] = ['version' => $version,'url' => $testedEndpoint, 'median' => median($dataPoints)];
 	}
 }
@@ -52,7 +43,7 @@ $data = [];
 // $version = $argv[2] ?? $inputFile;
 $files = array_slice($argv, 1);
 foreach ($files as $file) {
-	aggregateFile($file, str_replace('.json','',$file), $data);
+	aggregateFile($file, str_replace(['-webdav.json','.json'],'',basename($file)), $data);
 }
 
 echo json_encode($data);
